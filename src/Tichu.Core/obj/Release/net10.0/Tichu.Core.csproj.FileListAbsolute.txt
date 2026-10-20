@@ -1,0 +1,11 @@
+C:\Users\thunder\source\repos\CODEX\TICHU_BOT_CODEX\src\Tichu.Core\bin\Release\net10.0\Tichu.Core.deps.json
+C:\Users\thunder\source\repos\CODEX\TICHU_BOT_CODEX\src\Tichu.Core\bin\Release\net10.0\Tichu.Core.dll
+C:\Users\thunder\source\repos\CODEX\TICHU_BOT_CODEX\src\Tichu.Core\bin\Release\net10.0\Tichu.Core.pdb
+C:\Users\thunder\source\repos\CODEX\TICHU_BOT_CODEX\src\Tichu.Core\obj\Release\net10.0\Tichu.Core.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\thunder\source\repos\CODEX\TICHU_BOT_CODEX\src\Tichu.Core\obj\Release\net10.0\Tichu.Core.AssemblyInfoInputs.cache
+C:\Users\thunder\source\repos\CODEX\TICHU_BOT_CODEX\src\Tichu.Core\obj\Release\net10.0\Tichu.Core.AssemblyInfo.cs
+C:\Users\thunder\source\repos\CODEX\TICHU_BOT_CODEX\src\Tichu.Core\obj\Release\net10.0\Tichu.Core.csproj.CoreCompileInputs.cache
+C:\Users\thunder\source\repos\CODEX\TICHU_BOT_CODEX\src\Tichu.Core\obj\Release\net10.0\Tichu.Core.dll
+C:\Users\thunder\source\repos\CODEX\TICHU_BOT_CODEX\src\Tichu.Core\obj\Release\net10.0\refint\Tichu.Core.dll
+C:\Users\thunder\source\repos\CODEX\TICHU_BOT_CODEX\src\Tichu.Core\obj\Release\net10.0\Tichu.Core.pdb
+C:\Users\thunder\source\repos\CODEX\TICHU_BOT_CODEX\src\Tichu.Core\obj\Release\net10.0\ref\Tichu.Core.dll

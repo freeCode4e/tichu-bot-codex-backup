@@ -1,0 +1,39 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "Tichu.SelfPlay/1.0.0": {
+        "dependencies": {
+          "Tichu.Core": "1.0.0"
+        },
+        "runtime": {
+          "Tichu.SelfPlay.dll": {}
+        }
+      },
+      "Tichu.Core/1.0.0": {
+        "runtime": {
+          "Tichu.Core.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Tichu.SelfPlay/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Tichu.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

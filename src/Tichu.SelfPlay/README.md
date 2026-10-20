@@ -1,0 +1,61 @@
+# Tichu self-play and first policy trainer
+
+This project can generate seeded match trajectories or train a small linear policy against the random baseline or a frozen saved policy. The trainer is a first learning milestone, not a neural network or a strong Tichu player. It learns Grand and Tichu calls, card passing, ordinary card-play, and whether/which out-of-turn bomb to use; Dragon recipients still use the baseline policy.
+
+## Run or resume a dataset
+
+From the repository root in PowerShell:
+
+```powershell
+$env:PATH = "C:\Program Files\dotnet;$env:PATH"
+dotnet run --configuration Release --project .\src\Tichu.SelfPlay\Tichu.SelfPlay.csproj -- --games 1000 --seed 1 --target-score 1000 --output .\selfplay-output
+```
+
+`--games` is the total number of matches wanted in that output directory. Stop the process with Ctrl+C and run the same command again to continue. It skips matches already saved. Each completed match is flushed to disk, so an interruption can lose the match currently being played, but not earlier completed matches. On restart, an incomplete final JSONL line is discarded.
+
+Use a new output directory when changing the seed, target score, decision timer, or match-record version. The run metadata is checked on resume so incompatible data is not appended by mistake.
+
+## Train a first policy
+
+From the repository root in PowerShell:
+
+```powershell
+$env:PATH = "C:\Program Files\dotnet;$env:PATH"
+dotnet run --configuration Release --project .\src\Tichu.SelfPlay\Tichu.SelfPlay.csproj -- --train --games 1000 --seed 1 --target-score 1000 --output .\training-output
+```
+
+`--games` is the total target, so rerunning the same command resumes from the saved weights. The trainer writes `policy-checkpoint.json` atomically after every completed match; stopping during a match only loses that in-progress match. It alternates which team uses the learned policy and updates its linear preferences from the match score margin. `--learning-rate` defaults to `0.02`; checkpoint settings are checked on resume. The default training directory is `training-output` if `--output` is omitted.
+
+To continue from a saved policy against a fixed copy of itself, pass its directory with `--opponent-output` and use a new `--output` directory. The challenger starts with the frozen policy's weights; only the challenger is updated after each match. The opponent weights are fingerprinted, so a resumed run cannot silently switch opponents.
+
+```powershell
+$env:PATH = "C:\Program Files\dotnet;$env:PATH"
+dotnet run --configuration Release --project .\src\Tichu.SelfPlay\Tichu.SelfPlay.csproj -- --train --games 1000 --seed 1 --target-score 1000 --output .\training-vs-frozen --opponent-output .\training-bomb-decision-6000-20261020
+```
+
+The checkpoint stores card-play, declaration, and pass weights, reward baseline, completed-match count, win/loss/draw totals, average reward, and run settings. It does not contain full match trajectories. Checkpoints from before declaration or pass learning load with zeroed weights; older 23- and 31-feature declaration models load by appending zeroed newer state features. Use the generator command above for replayable JSONL game records.
+
+To compare the saved policy with a fixed checkpoint on fresh seeds, use the same option for evaluation. Omit it to compare against random play:
+
+```powershell
+$env:PATH = "C:\Program Files\dotnet;$env:PATH"
+dotnet run --configuration Release --project .\src\Tichu.SelfPlay\Tichu.SelfPlay.csproj -- --evaluate --games 200 --seed 1 --target-score 1000 --output .\training-vs-frozen --opponent-output .\training-bomb-decision-6000-20261020
+```
+
+Evaluation alternates the learned policy between the two teams and reports wins, average score, and average normalized score margin. Training and evaluation win rates are only rough checks; use substantially more matches before drawing conclusions.
+
+## Files
+
+- `matches.jsonl`: one complete match record per line, including seeded deck order, declarations, passes, action-time observations and decisions, trick collections, and round scores. Each call record stores the hand at declaration; Tichu records also identify the preceding action index and any pending Mah Jong wish.
+- `run.json`: schema and run settings.
+- `checkpoint.json`: count and ID of saved matches; rebuilt from the journal when resuming.
+
+Each action record includes the acting player's hand and the public state needed to describe that decision. `DeckOrder` is included to reproduce a match and inspect it; it reveals every player's hidden cards and must not be used as an agent observation or training feature.
+
+Cards are compact integers in the JSONL file: ordinary cards use `suit * 13 + rank - 2` (`Jade` through `Star`, `Two` through `Ace`), followed by `52 = MahJong`, `53 = Phoenix`, `54 = Dragon`, and `55 = Dog`. `CompactCardJsonConverter` can decode these IDs in .NET.
+
+## Current scope
+
+The learned policy uses legal actions generated by the simulator and hand/public-state features. Card-play features include retaining full-house structure, the interaction between a Mah Jong wish and a retained high full house, and whether the wish matches the rank the player passed to the left. Pass features include the recipient, card rank and points, rank groups, same-suit adjacency, straight potential, and the hand left after each exchange choice. The baseline pass heuristic remains a prior while pass choices are trained. Grand calls use the first eight cards before the exchange. Tichu calls use the post-exchange hand; the simulator offers another decision before each public action until that player plays their first card. Tichu features include the visible Mah Jong wish, its rank, and how many matching cards remain in hand. The policy does not yet learn Dragon recipients or estimate whether an opponent likely holds the other cards for a bomb.
+
+No human-game archive has been downloaded or imported. BrettSpielWelt logs are a candidate source: the [`tich_me` project](https://github.com/kalekundert/tich_me) describes monthly log downloads, and a [Tichu-agent thesis](https://pub.tik.ee.ethz.ch/students/2020-FS/SA-2020-19.pdf) reports training from those logs. Current availability and format still need to be checked; that thesis also filtered out straight-bomb and asynchronous-bomb games.
