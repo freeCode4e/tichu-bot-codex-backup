@@ -9,7 +9,7 @@ namespace Tichu.SelfPlay;
 /// </summary>
 public sealed class LinearPreferencePolicy : ITichuPolicy
 {
-    public const int ModelSchemaVersion = 1;
+    public const int ModelSchemaVersion = 4;
     private const double MaximumGradientNorm = 5.0;
     private const double MaximumAbsoluteWeight = 8.0;
 
@@ -206,6 +206,7 @@ public sealed class LinearPreferencePolicy : ITichuPolicy
         RoundSnapshot snapshot,
         IReadOnlyList<LegalMove> moves)
     {
+        moves = RespectPassedCardIdentityWhenEquivalentMoveExists(seat, hand, moves);
         if (moves.Count == 1)
         {
             return moves[0];
@@ -223,6 +224,95 @@ public sealed class LinearPreferencePolicy : ITichuPolicy
         }
 
         return moves[ChooseAndRecord(features, PolicyParameterSet.Move)];
+    }
+
+    private IReadOnlyList<LegalMove> RespectPassedCardIdentityWhenEquivalentMoveExists(
+        PlayerSeat seat,
+        IReadOnlyList<Card> hand,
+        IReadOnlyList<LegalMove> moves)
+    {
+        if (!_roundContexts.TryGetValue(seat, out var roundContext))
+        {
+            return moves;
+        }
+
+        var filteredMoves = moves;
+        if (roundContext.ReceivedFromPartner is { } partnerPassedCard && hand.Contains(partnerPassedCard))
+        {
+            filteredMoves = FilterMovesByCardIdentity(
+                filteredMoves,
+                partnerPassedCard,
+                preserveCardWhenEquivalentMoveExists: true);
+        }
+
+        foreach (var opponentPassedCard in new[]
+                 {
+                     roundContext.ReceivedFromRightOpponent,
+                     roundContext.ReceivedFromLeftOpponent
+                 }.OfType<Card>().Distinct())
+        {
+            if (hand.Contains(opponentPassedCard))
+            {
+                filteredMoves = FilterMovesByCardIdentity(
+                    filteredMoves,
+                    opponentPassedCard,
+                    preserveCardWhenEquivalentMoveExists: false);
+            }
+        }
+
+        return filteredMoves;
+    }
+
+    // Keep the partner's physical card and spend an opponent-passed physical card
+    // when the same legal combination can use an equivalent copy of that rank.
+    private static IReadOnlyList<LegalMove> FilterMovesByCardIdentity(
+        IReadOnlyList<LegalMove> moves,
+        Card card,
+        bool preserveCardWhenEquivalentMoveExists)
+    {
+        var filteredMoves = moves
+            .Where(move =>
+            {
+                var moveUsesCard = move.Combination?.Cards.Contains(card) == true;
+                if (moveUsesCard != preserveCardWhenEquivalentMoveExists)
+                {
+                    return true;
+                }
+
+                var hasEquivalentAlternative = preserveCardWhenEquivalentMoveExists
+                    ? moves.Any(alternative => ReplacesCardWithEquivalentCard(move, alternative, card))
+                    : moves.Any(alternative => ReplacesCardWithEquivalentCard(alternative, move, card));
+                return !hasEquivalentAlternative;
+            })
+            .ToArray();
+        return filteredMoves.Length > 0 ? filteredMoves : moves;
+    }
+
+    private static bool ReplacesCardWithEquivalentCard(
+        LegalMove move,
+        LegalMove alternative,
+        Card card)
+    {
+        if (move.Combination is not { } combination ||
+            alternative.Combination is not { } alternativeCombination ||
+            !combination.Cards.Contains(card) ||
+            alternativeCombination.Cards.Contains(card) ||
+            combination.Type != alternativeCombination.Type ||
+            combination.CardCount != alternativeCombination.CardCount ||
+            combination.Strength != alternativeCombination.Strength ||
+            combination.PhoenixAsRank != alternativeCombination.PhoenixAsRank ||
+            move.WishForMahJong != alternative.WishForMahJong)
+        {
+            return false;
+        }
+
+        var cardsWithoutCard = combination.Cards
+            .Where(combinationCard => combinationCard != card)
+            .ToHashSet();
+        return alternativeCombination.Cards.Any(replacementCard =>
+            replacementCard.Rank == card.Rank &&
+            cardsWithoutCard.SetEquals(
+                alternativeCombination.Cards.Where(alternativeCard => alternativeCard != replacementCard)));
     }
 
     private bool ChooseDeclaration(

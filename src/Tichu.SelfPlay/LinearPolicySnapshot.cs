@@ -17,6 +17,16 @@ public sealed class LinearPolicySnapshot
         IEnumerable<double>? declarationWeights = null,
         IEnumerable<double>? passWeights = null,
         double rewardBaseline = 0.0)
+        : this(weights, declarationWeights, passWeights, rewardBaseline, fingerprintOverride: null)
+    {
+    }
+
+    private LinearPolicySnapshot(
+        IEnumerable<double> weights,
+        IEnumerable<double>? declarationWeights,
+        IEnumerable<double>? passWeights,
+        double rewardBaseline,
+        string? fingerprintOverride)
     {
         ArgumentNullException.ThrowIfNull(weights);
         _weights = weights.ToArray();
@@ -33,12 +43,11 @@ public sealed class LinearPolicySnapshot
         }
 
         RewardBaseline = rewardBaseline;
-        var fingerprintBytes = JsonSerializer.SerializeToUtf8Bytes(new FingerprintPayload(
+        Fingerprint = fingerprintOverride ?? ComputeFingerprint(
             LinearPreferencePolicy.ModelSchemaVersion,
             _weights,
             _declarationWeights,
-            _passWeights));
-        Fingerprint = Convert.ToHexString(SHA256.HashData(fingerprintBytes));
+            _passWeights);
     }
 
     public IReadOnlyList<double> Weights => Array.AsReadOnly(_weights.ToArray());
@@ -75,11 +84,46 @@ public sealed class LinearPolicySnapshot
     public static LinearPolicySnapshot FromCheckpoint(LinearPolicyTrainingCheckpoint checkpoint)
     {
         ArgumentNullException.ThrowIfNull(checkpoint);
+        var legacyFingerprint = (
+                                   checkpoint.Configuration.ModelSchemaVersion ==
+                                   PolicyCheckpointCompatibility.LegacyModelSchemaVersion &&
+                                   checkpoint.Configuration.FeatureCount == MoveFeatureEncoder.LegacyFeatureCount &&
+                                   checkpoint.Weights is { Length: MoveFeatureEncoder.LegacyFeatureCount }) ||
+                               (checkpoint.Configuration.ModelSchemaVersion ==
+                                PolicyCheckpointCompatibility.PreviousModelSchemaVersion &&
+                                checkpoint.Configuration.FeatureCount == MoveFeatureEncoder.PreviousFeatureCount &&
+                                checkpoint.Weights is { Length: MoveFeatureEncoder.PreviousFeatureCount }) ||
+                               (checkpoint.Configuration.ModelSchemaVersion ==
+                                PolicyCheckpointCompatibility.PreviousCurrentModelSchemaVersion &&
+                                checkpoint.Configuration.FeatureCount == MoveFeatureEncoder.PreviousCurrentFeatureCount &&
+                                checkpoint.Weights is { Length: MoveFeatureEncoder.PreviousCurrentFeatureCount })
+            ? ComputeFingerprint(
+                checkpoint.Configuration.ModelSchemaVersion,
+                checkpoint.Weights,
+                checkpoint.DeclarationWeights ?? Array.Empty<double>(),
+                checkpoint.PassWeights ?? Array.Empty<double>())
+            : null;
+        checkpoint = PolicyCheckpointCompatibility.Upgrade(checkpoint);
         return new LinearPolicySnapshot(
             checkpoint.Weights,
             checkpoint.DeclarationWeights,
             checkpoint.PassWeights,
-            checkpoint.RewardBaseline);
+            checkpoint.RewardBaseline,
+            legacyFingerprint);
+    }
+
+    private static string ComputeFingerprint(
+        int modelSchemaVersion,
+        double[] weights,
+        double[] declarationWeights,
+        double[] passWeights)
+    {
+        var fingerprintBytes = JsonSerializer.SerializeToUtf8Bytes(new FingerprintPayload(
+            modelSchemaVersion,
+            weights,
+            declarationWeights,
+            passWeights));
+        return Convert.ToHexString(SHA256.HashData(fingerprintBytes));
     }
 
     private sealed record FingerprintPayload(

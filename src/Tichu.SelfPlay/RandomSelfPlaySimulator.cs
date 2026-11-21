@@ -188,7 +188,12 @@ public sealed class RandomSelfPlaySimulator
         var preparedRound = TichuRoundSetup.Prepare(deal, passSelections);
         foreach (var seat in Enum.GetValues<PlayerSeat>())
         {
-            policies[seat].BeginRound(new PolicyRoundContext(seat, passSelections[seat]));
+            policies[seat].BeginRound(new PolicyRoundContext(
+                seat,
+                passSelections[seat],
+                passSelections[seat.Partner()].ToPartner,
+                passSelections[seat.ToTheRight()].ToLeft,
+                passSelections[seat.ToTheLeft()].ToRight));
         }
 
         var round = preparedRound.CreateRoundState();

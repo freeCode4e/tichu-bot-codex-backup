@@ -24,7 +24,16 @@ public static class DeclarationFeatureEncoder
     public const int TichuWishCardCountIndex = 34;
     public const int TichuCurrentTrickPlayCountIndex = 35;
     public const int TichuCurrentTrickLedByPartnerIndex = 36;
-    public const int FeatureCount = 37;
+    public const int PreviousFeatureCount = TichuCurrentTrickLedByPartnerIndex + 1;
+    public const int TichuCurrentTopOwnedByRightOpponentIndex = PreviousFeatureCount;
+    public const int TichuCurrentTopOwnedByLeftOpponentIndex = TichuCurrentTopOwnedByRightOpponentIndex + 1;
+    public const int TichuPartnerHandSizeIndex = TichuCurrentTopOwnedByLeftOpponentIndex + 1;
+    public const int TichuRightOpponentHandSizeIndex = TichuPartnerHandSizeIndex + 1;
+    public const int TichuLeftOpponentHandSizeIndex = TichuRightOpponentHandSizeIndex + 1;
+    public const int TichuCurrentTopStrengthIndex = TichuLeftOpponentHandSizeIndex + 1;
+    public const int TichuCurrentTopCardCountIndex = TichuCurrentTopStrengthIndex + 1;
+    public const int TichuCurrentTopCombinationTypeStart = TichuCurrentTopCardCountIndex + 1;
+    public const int FeatureCount = TichuCurrentTopCombinationTypeStart + 8;
 
     private static readonly string[] FeatureNameArray =
     {
@@ -64,7 +73,22 @@ public static class DeclarationFeatureEncoder
         "TichuPendingWishRank",
         "TichuWishCardCount",
         "TichuCurrentTrickPlayCount",
-        "TichuCurrentTrickLedByPartner"
+        "TichuCurrentTrickLedByPartner",
+        "TichuCurrentTopOwnedByRightOpponent",
+        "TichuCurrentTopOwnedByLeftOpponent",
+        "TichuPartnerHandSize",
+        "TichuRightOpponentHandSize",
+        "TichuLeftOpponentHandSize",
+        "TichuCurrentTopStrength",
+        "TichuCurrentTopCardCount",
+        "TichuCurrentTopCombination_Single",
+        "TichuCurrentTopCombination_Pair",
+        "TichuCurrentTopCombination_ConsecutivePairs",
+        "TichuCurrentTopCombination_Triple",
+        "TichuCurrentTopCombination_FullHouse",
+        "TichuCurrentTopCombination_Straight",
+        "TichuCurrentTopCombination_FourOfAKindBomb",
+        "TichuCurrentTopCombination_StraightFlushBomb"
     };
 
     public static IReadOnlyList<string> FeatureNames { get; } = Array.AsReadOnly(FeatureNameArray);
@@ -136,6 +160,20 @@ public static class DeclarationFeatureEncoder
         features[TichuCurrentTrickPlayCountIndex] = Math.Min(snapshot.Trick.Plays.Count, 4) / 4.0;
         features[TichuCurrentTrickLedByPartnerIndex] =
             snapshot.Trick.CurrentTopSeat == context.Seat.Partner() ? 1.0 : 0.0;
+        features[TichuCurrentTopOwnedByRightOpponentIndex] =
+            snapshot.Trick.CurrentTopSeat == context.Seat.ToTheRight() ? 1.0 : 0.0;
+        features[TichuCurrentTopOwnedByLeftOpponentIndex] =
+            snapshot.Trick.CurrentTopSeat == context.Seat.ToTheLeft() ? 1.0 : 0.0;
+        features[TichuPartnerHandSizeIndex] = snapshot.HandSizes[(int)context.Seat.Partner()] / 14.0;
+        features[TichuRightOpponentHandSizeIndex] = snapshot.HandSizes[(int)context.Seat.ToTheRight()] / 14.0;
+        features[TichuLeftOpponentHandSizeIndex] = snapshot.HandSizes[(int)context.Seat.ToTheLeft()] / 14.0;
+
+        if (snapshot.Trick.CurrentTop is { } currentTop)
+        {
+            features[TichuCurrentTopStrengthIndex] = Math.Clamp((double)currentTop.Strength / 16.0, 0.0, 2.0);
+            features[TichuCurrentTopCardCountIndex] = currentTop.CardCount / 14.0;
+            features[TichuCurrentTopCombinationTypeStart + (int)currentTop.Type] = 1.0;
+        }
 
         if (snapshot.Trick.PendingWish is not { } wish)
         {

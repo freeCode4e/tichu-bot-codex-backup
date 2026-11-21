@@ -6,7 +6,6 @@ namespace Tichu.SelfPlay;
 public sealed class PolicyTrainingStore
 {
     private const int CheckpointSchemaVersion = 1;
-    private static readonly int[] PreviousDeclarationFeatureCounts = [23, 31];
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private readonly string _checkpointPath;
     private readonly PolicyTrainingConfiguration _configuration;
@@ -75,7 +74,7 @@ public sealed class PolicyTrainingStore
                              File.ReadAllText(_checkpointPath),
                              JsonOptions)
                          ?? throw new InvalidDataException("The policy checkpoint is empty or invalid.");
-        checkpoint = UpgradeDeclarationFeatureSchema(checkpoint);
+        checkpoint = PolicyCheckpointCompatibility.Upgrade(checkpoint);
         var expectedConfiguration = _validateOpponentFingerprint
             ? _configuration
             : _configuration with { OpponentFingerprint = checkpoint.Configuration.OpponentFingerprint };
@@ -127,29 +126,6 @@ public sealed class PolicyTrainingStore
         }
 
         File.Move(temporary, _checkpointPath, overwrite: true);
-    }
-
-    private LinearPolicyTrainingCheckpoint UpgradeDeclarationFeatureSchema(
-        LinearPolicyTrainingCheckpoint checkpoint)
-    {
-        var previousFeatureCount = checkpoint.Configuration.DeclarationFeatureCount;
-        var previousConfiguration = _configuration with { DeclarationFeatureCount = previousFeatureCount };
-        if (!PreviousDeclarationFeatureCounts.Contains(previousFeatureCount) ||
-            checkpoint.Configuration != previousConfiguration ||
-            checkpoint.DeclarationWeights is null ||
-            checkpoint.DeclarationWeights.Length != previousFeatureCount ||
-            checkpoint.DeclarationWeights.Any(weight => !double.IsFinite(weight)))
-        {
-            return checkpoint;
-        }
-
-        var expandedWeights = new double[DeclarationFeatureEncoder.FeatureCount];
-        Array.Copy(checkpoint.DeclarationWeights, expandedWeights, previousFeatureCount);
-        return checkpoint with
-        {
-            Configuration = _configuration,
-            DeclarationWeights = expandedWeights
-        };
     }
 
 }

@@ -5,6 +5,10 @@ public sealed record RoundSnapshot(
     IReadOnlyList<int> HandSizes,
     IReadOnlyList<int> CollectedPointsBySeat)
 {
+    /// <summary>Public card history, grouped by the seat that played each card.</summary>
+    public IReadOnlyList<IReadOnlyList<Card>> PlayedCardsBySeat { get; init; } =
+        Array.Empty<IReadOnlyList<Card>>();
+
     public bool IsRoundEnded => Trick.IsRoundEnded;
 
     public int TotalCollectedPoints => CollectedPointsBySeat.Sum();
@@ -19,6 +23,8 @@ public sealed class RoundState
 {
     private readonly Card[][] _hands;
     private readonly int[] _collectedPoints = new int[4];
+    private readonly List<Card>[] _playedCardsBySeat =
+        Enumerable.Range(0, 4).Select(_ => new List<Card>()).ToArray();
     private readonly TrickState _trick;
 
     public RoundState(PlayerSeat openingSeat, IReadOnlyDictionary<PlayerSeat, IEnumerable<Card>> hands)
@@ -128,12 +134,19 @@ public sealed class RoundState
 
     private void RemovePlayedCards(PlayerSeat seat, CardCombination play)
     {
+        var seatIndex = seat.ToIndex();
         var played = play.Cards.ToHashSet();
-        _hands[seat.ToIndex()] = _hands[seat.ToIndex()].Where(card => !played.Contains(card)).ToArray();
+        _hands[seatIndex] = _hands[seatIndex].Where(card => !played.Contains(card)).ToArray();
+        _playedCardsBySeat[seatIndex].AddRange(play.Cards);
     }
 
     private RoundSnapshot CreateSnapshot() => new(
         _trick.Snapshot,
         Array.AsReadOnly(_hands.Select(hand => hand.Length).ToArray()),
-        Array.AsReadOnly(_collectedPoints.ToArray()));
+        Array.AsReadOnly(_collectedPoints.ToArray()))
+    {
+        PlayedCardsBySeat = Array.AsReadOnly(_playedCardsBySeat
+            .Select(cards => (IReadOnlyList<Card>)Array.AsReadOnly(cards.ToArray()))
+            .ToArray())
+    };
 }

@@ -47,6 +47,35 @@ public sealed class MoveGeneratorTests
     }
 
     [Fact]
+    public void PhoenixCanAnswerAllFourteenOrdinarySingleRanksButNotDragonOrDog()
+    {
+        var phoenix = new Card(CardRank.Phoenix);
+        var ordinarySingleRanks = new[] { CardRank.MahJong }
+            .Concat(Enumerable.Range((int)CardRank.Two, (int)CardRank.Ace - (int)CardRank.Two + 1)
+                .Select(rank => (CardRank)rank))
+            .ToArray();
+
+        Assert.Equal(14, ordinarySingleRanks.Length);
+        foreach (var rank in ordinarySingleRanks)
+        {
+            var topCard = rank == CardRank.MahJong
+                ? new Card(CardRank.MahJong)
+                : new Card(rank, CardSuit.Jade);
+            var top = Combo(topCard);
+            var phoenixResponse = Assert.Single(
+                MoveGenerator.Generate(new[] { phoenix }, top),
+                move => move.Combination?.Cards.SingleOrDefault() == phoenix);
+
+            Assert.Equal(top.Strength + 0.5m, phoenixResponse.Combination!.Strength);
+        }
+
+        Assert.DoesNotContain(
+            MoveGenerator.Generate(new[] { phoenix }, Combo(new Card(CardRank.Dragon))),
+            move => move.Combination?.Cards.SingleOrDefault() == phoenix);
+        Assert.Empty(MoveGenerator.Generate(new[] { phoenix }, Combo(new Card(CardRank.Dog))));
+    }
+
+    [Fact]
     public void OnTurnBombsRemainTurnPlaysAndAreCheckedAgainstWish()
     {
         var fives = Enum.GetValues<CardSuit>().Select(suit => N(5, suit)).ToArray();

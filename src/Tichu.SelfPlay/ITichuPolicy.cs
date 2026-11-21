@@ -2,8 +2,13 @@ using Tichu.Core;
 
 namespace Tichu.SelfPlay;
 
-/// <summary>Public-to-the-player context from the completed card exchange.</summary>
-public sealed record PolicyRoundContext(PlayerSeat Seat, CardPassSelection PassSelection);
+/// <summary>Private-to-the-player context from the completed card exchange.</summary>
+public sealed record PolicyRoundContext(
+    PlayerSeat Seat,
+    CardPassSelection PassSelection,
+    Card? ReceivedFromPartner = null,
+    Card? ReceivedFromRightOpponent = null,
+    Card? ReceivedFromLeftOpponent = null);
 
 /// <summary>Public state visible when a Grand or Tichu call is considered.</summary>
 public sealed record PolicyDeclarationContext(
